@@ -1,8 +1,9 @@
 # constants.py
 from enum import Enum
+from enum import IntEnum
 
 
-class ECamDeviceType(Enum):
+class ECamDeviceType(IntEnum):
     ecdtUnknown = 0
     eRi2 = 1
     eRi2_Simulator = 2
@@ -183,7 +184,7 @@ class ECamTriggerMode(Enum):
     ectmTriggerMax = 3
 
 
-class ECamVariantRunType(Enum):
+class ECamVariantRunType(IntEnum):
     evrt_unknown = 0
     evrt_int32 = 1
     evrt_uint32 = 2
