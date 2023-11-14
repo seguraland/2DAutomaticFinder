@@ -1,5 +1,7 @@
 # example_usage.py
 from dscamlib.functions import *
+from dscamlib.definitions.other_definitions import CAM_CMD_GET_FRAMESIZE
+from dscamlib.structures import CAM_CMD_GetFrameSize
 from dscamlib.utils import save_image
 
 # Default save path for an image
@@ -40,9 +42,17 @@ def run_example():
                 else:
                     print(features)  # Error message
 
-                # Capture an image
-                stImage, error_msg = CAM_GetImage(camera_handle, True)  # True for the latest image
+                # Prepare for receiving an image and get the frame size
+                success, frame_size_or_error = prepare_receive_image(camera_handle)
+                if not success:
+                    print(frame_size_or_error)  # Print error message
+                    return
 
+                frame_size = frame_size_or_error
+                print(f"Using frame size: {frame_size} for image capture")
+
+                # Capture an image with the obtained frame size
+                stImage, error_msg = CAM_GetImage(camera_handle, True, frame_size)  # True for the latest image
                 if error_msg:
                     print(error_msg)
                 else:
@@ -68,13 +78,22 @@ if __name__ == "__main__":
 
 
 def prepare_receive_image(camera_handle):
+    print("Preparing to receive image...")
+
+    # Create an instance of the structure to hold the frame size command result
     frame_size_command = CAM_CMD_GetFrameSize()
+
+    # Send the command to get the frame size
+    print(f"Sending command to get frame size for camera handle: {camera_handle}")
     result = CAM_Command(camera_handle, "CAM_CMD_GET_FRAMESIZE", frame_size_command)
+
+    # Check the result of the command
     if result != LX_OK:
+        print(f"Failed to get frame size, error code: {result}")
         return False, "Failed to get frame size"
 
+    # Print the obtained frame size
     frame_size = frame_size_command.uiFrameSize
-    # Additional preparations based on frame size and format.
-    # ...
+    print(f"Obtained frame size: {frame_size}")
 
-    return True, None
+    return True, frame_size

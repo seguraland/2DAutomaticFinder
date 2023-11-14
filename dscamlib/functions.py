@@ -3,6 +3,7 @@ from pathlib import Path
 from .structures import CAM_Device, Vector_CAM_FeatureValue, CAM_FeatureValue, CAM_FeatureDesc, CAM_Image
 from .definitions.error_codes import LX_OK
 from .definitions.other_definitions import *
+from .utils import get_error_message
 
 # Determine the absolute path to the 'DSCam.dll' file
 dll_path = Path(__file__).resolve().parent.parent / 'binary' / 'DSCam.dll'
@@ -229,15 +230,30 @@ def GetAllFeaturesDesc(camera_handle, features):
     return feature_descs
 
 
-def CAM_GetImage(camera_handle, bNewRequired):
-    stImage = CAM_Image()  # Assuming this is already defined
-    uiRemained = ctypes.c_uint32()
+def CAM_GetImage(camera_handle, bNewRequired, frame_size):
+    """
+    Captures an image from the camera.
 
-    # Allocate memory for the image data if necessary
-    print(stImage);
+    :param camera_handle: The handle to the camera.
+    :param bNewRequired: Boolean to indicate whether to capture the latest image.
+    :param frame_size: The expected size of the image frame.
+    :return: A tuple (CAM_Image object, None) if successful, or (None, error message) if failed.
+    """
+    stImage = CAM_Image()
+    stImage.uiDataBufferSize = frame_size  # Set the size of the frame
+
+    # Allocate memory for the image data
+    buffer = ctypes.create_string_buffer(frame_size)
+
+    # Instead of casting, directly assign the memory address of the buffer to pDataBuffer
+    stImage.pDataBuffer = ctypes.cast(ctypes.addressof(buffer), ctypes.c_void_p)
+
+    uiRemained = ctypes.c_uint32()
     result = dscam.CAM_GetImage(camera_handle, bNewRequired, ctypes.byref(stImage), ctypes.byref(uiRemained))
+
     if result != LX_OK:
-        return None, "Failed to get image"
+        error_msg = get_error_message(result)
+        return None, f"Failed to get image, error: {error_msg}"
 
     return stImage, None
 
