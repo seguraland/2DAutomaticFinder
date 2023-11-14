@@ -1,6 +1,6 @@
 import ctypes
 from pathlib import Path
-from .structures import CAM_Device, Vector_CAM_FeatureValue, CAM_FeatureValue, CAM_FeatureDesc
+from .structures import CAM_Device, Vector_CAM_FeatureValue, CAM_FeatureValue, CAM_FeatureDesc, CAM_Image
 from .definitions.error_codes import LX_OK
 from .definitions.other_definitions import *
 
@@ -34,7 +34,6 @@ dscam.CAM_Close.restype = lx_result
 dscam.CAM_GetAllFeatures.argtypes = [lx_uint32, ctypes.POINTER(Vector_CAM_FeatureValue)]
 dscam.CAM_GetAllFeatures.restype = lx_result
 
-
 # Retrieves specified feature values from the camera
 # #dscam.CAM_GetFeatures.argtypes = [lx_uint32, ctypes.POINTER(Vector_CAM_FeatureValue)]
 # #dscam.CAM_GetFeatures.restype = lx_result
@@ -48,12 +47,13 @@ dscam.CAM_GetFeatureDesc.argtypes = [lx_uint32, lx_uint32, ctypes.POINTER(CAM_Fe
 dscam.CAM_GetFeatureDesc.restype = lx_result
 
 # Retrieves an image from the camera
-# #dscam.CAM_GetImage.argtypes = [lx_uint32, ctypes.c_bool, ctypes.POINTER(CAM_Image), ctypes.POINTER(lx_uint32)]
-# #dscam.CAM_GetImage.restype = lx_result
+dscam.CAM_GetImage.argtypes = [lx_uint32, ctypes.c_bool, ctypes.POINTER(CAM_Image), ctypes.POINTER(lx_uint32)]
+dscam.CAM_GetImage.restype = lx_result
 
 # Sends a command to the camera
-# #dscam.CAM_Command.argtypes = [lx_uint32, ctypes.POINTER(ctypes.c_wchar), ctypes.c_void_p]
-# #dscam.CAM_Command.restype = lx_result
+dscam.CAM_Command.argtypes = [lx_uint32, ctypes.POINTER(ctypes.c_wchar), ctypes.c_void_p]
+dscam.CAM_Command.restype = lx_result
+
 
 # Polls for an event from the camera
 # #dscam.CAM_EventPolling.argtypes = [lx_uint32, ctypes.c_void_p, ctypes.c_int, ctypes.POINTER(CAM_Event)]
@@ -72,22 +72,50 @@ dscam.CAM_GetFeatureDesc.restype = lx_result
 
 # # Define CAM_OpenDevices Function
 def CAM_OpenDevices():
+    """
+    Opens all available camera devices and retrieves their information.
+
+    :return: A list of dictionaries containing device information if successful,
+             or an error message string if unsuccessful.
+    """
+
+    # Initialize a variable to hold the count of devices
     uiDeviceCount = ctypes.c_uint32()
+
+    # Initialize a pointer to hold the array of devices
     ppstCamDevice = ctypes.POINTER(CAM_Device)()
 
+    # Call the CAM_OpenDevices function from the DLL
     result = dscam.CAM_OpenDevices(ctypes.byref(uiDeviceCount), ctypes.byref(ppstCamDevice))
+
+    # Check if the call was successful
     if result == LX_OK:
         devices = []
+        # Iterate over the array of devices and extract their information
         for i in range(uiDeviceCount.value):
             device = ppstCamDevice[i]
             devices.append({
-                'Type': device.eCamDeviceType,
-                'Serial Number': device.uiSerialNo,
-                'Camera Name': device.wszCameraName
+                'Type': device.eCamDeviceType,  # Device type
+                'Serial Number': device.uiSerialNo,  # Serial number
+                'Camera Name': device.wszCameraName  # Camera name
             })
         return devices
     else:
+        # Return an error message if the call was unsuccessful
         return "Failed to open devices."
+
+
+def CAM_CloseDevices():
+    """
+    Closes all devices that were opened.
+
+    :return: A string indicating success or an error message.
+    """
+    result = dscam.CAM_CloseDevices()
+    if result != LX_OK:
+        return "Failed to close devices, error code: {}".format(result)
+
+    return "Devices closed successfully"
 
 
 def CAM_Open(device_index):
@@ -112,6 +140,28 @@ def CAM_Open(device_index):
     #     return False, uiCameraHandle.value, "Failed to set event callback."
 
     return True, uiCameraHandle.value, None
+
+
+def CAM_Close(camera_handle):
+    """
+    Closes the camera device.
+
+    :param camera_handle: The handle to the camera device.
+    :return: A string indicating success or error message.
+    """
+    # Implement any necessary cleanup before closing the camera
+    # e.g., StopGetImageThread(), ClearImage(), etc.
+    # These depend on your specific application implementation
+
+    # Call CAM_Close from your ctypes DLL
+    result = dscam.CAM_Close(camera_handle)
+    if result != LX_OK:
+        return f"Failed to close camera, error code: {result}"
+
+    # Perform any additional cleanup if necessary
+    # e.g., Free_Vector_CAM_FeatureValue(), Free_CAM_FeatureDesc(), etc.
+
+    return "Camera closed successfully"
 
 
 def GetAllFeatures(camera_handle):
@@ -177,3 +227,26 @@ def GetAllFeaturesDesc(camera_handle, features):
         feature_descs.append(feature_desc)
 
     return feature_descs
+
+
+def CAM_GetImage(camera_handle, bNewRequired):
+    stImage = CAM_Image()  # Assuming this is already defined
+    uiRemained = ctypes.c_uint32()
+
+    # Allocate memory for the image data if necessary
+    print(stImage);
+    result = dscam.CAM_GetImage(camera_handle, bNewRequired, ctypes.byref(stImage), ctypes.byref(uiRemained))
+    if result != LX_OK:
+        return None, "Failed to get image"
+
+    return stImage, None
+
+
+def CAM_Command(camera_handle, command, data):
+    # 'command' is a string representing the command name
+    # and 'data' is an instance of the appropriate command structure.
+    # The implementation of this function will depend on how CAM_Command is defined in the SDK.
+
+    result = dscam.CAM_Command(camera_handle, command, ctypes.byref(data))
+
+    return result
