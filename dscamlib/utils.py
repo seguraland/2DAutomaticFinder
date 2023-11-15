@@ -1,5 +1,4 @@
 from .definitions.error_codes import *
-from .structures import CAM_Event
 from .definitions.constants import ECamEventType, ECamFeatureDescType
 
 
@@ -70,6 +69,7 @@ def event_callback(camera_handle, event_ptr, user_data):
 
     elif event.eEventType == ECamEventType.ecetExposureEnd.value:
         print("Exposure end event detected")
+        print("")
         # Handle exposure end
         # ...
 
@@ -77,3 +77,5 @@ def event_callback(camera_handle, event_ptr, user_data):
 
     else:
         print(f"Unknown event type: {event.eEventType}")
+
+

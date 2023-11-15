@@ -1,17 +1,20 @@
 # example_usage.py
 import os
 
+
 # Check if the script is running in PyCharm
 if 'PYCHARM_HOSTED' in os.environ:
     # PyCharm specific imports
     from dscamlib.dscamlib.functions import *
     from dscamlib.dscamlib.definitions.other_definitions import CAM_CMD_GET_FRAMESIZE
+    from dscamlib.dscamlib.definitions.constants import ECamTriggerMode
     from dscamlib.dscamlib.structures import CAM_CMD_GetFrameSize
     from dscamlib.dscamlib.utils import save_image, event_callback
 else:
     # Imports for other environments
     from dscamlib.functions import *
     from dscamlib.definitions.other_definitions import CAM_CMD_GET_FRAMESIZE
+    from dscamlib.definitions.constants import ECamTriggerMode
     from dscamlib.structures import CAM_CMD_GetFrameSize
     from dscamlib.utils import save_image, event_callback
 
@@ -39,9 +42,12 @@ def run_example():
             if features:
                 print_feature_descriptions(camera_handle, features)
 
+            run_capture_sequence(camera_handle)
+
             image = prepare_and_capture_image(camera_handle)
             if image:
                 # Image capture and save logic
+                save_image(image, DEF_SAVE_PATH)
                 pass
 
             close_camera(camera_handle)
@@ -54,6 +60,16 @@ def run_example():
 
 if __name__ == "__main__":
     run_example()
+
+
+def run_capture_sequence(camera_handle):
+    print("Run image capture sequence...")
+    set_trigger_mode(camera_handle, ECamTriggerMode.ectmSoft)
+    start_image_transfer(camera_handle)
+    capture_image(camera_handle)
+    # The image reception will be handled in the event_callback
+    stop_image_transfer(camera_handle)
+    print("Run image capture sequence DONE")
 
 
 def open_camera():
@@ -103,8 +119,6 @@ def prepare_and_capture_image(camera_handle):
         print(error_msg)
         return None
     else:
-        # Save the image
-        save_image(stImage, DEF_SAVE_PATH)
         return stImage
 
 

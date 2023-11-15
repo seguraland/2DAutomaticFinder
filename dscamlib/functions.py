@@ -1,9 +1,12 @@
 import ctypes
+from ctypes import cast, POINTER, byref
 from pathlib import Path
-from .structures import CAM_Device, Vector_CAM_FeatureValue, CAM_FeatureValue, CAM_FeatureDesc, CAM_Image, CAM_Event
+from .structures import CAM_Device, Vector_CAM_FeatureValue, CAM_FeatureValue, CAM_FeatureDesc, CAM_Image, CAM_Event, CAM_CMD_StartFrameTransfer
 from .definitions.error_codes import LX_OK
 from .definitions.other_definitions import *
+from .definitions.constants import ECamFeatureId, ECamVariantRunType
 from .utils import get_error_message, process_feature_desc
+
 
 # Determine the absolute path to the 'DSCam.dll' file
 dll_path = Path(__file__).resolve().parent.parent / 'binary' / 'DSCam.dll'
@@ -40,8 +43,8 @@ dscam.CAM_GetAllFeatures.restype = lx_result
 # #dscam.CAM_GetFeatures.restype = lx_result
 
 # Sets specified feature values on the camera
-# #dscam.CAM_SetFeatures.argtypes = [lx_uint32, ctypes.POINTER(Vector_CAM_FeatureValue)]
-# #dscam.CAM_SetFeatures.restype = lx_result
+dscam.CAM_SetFeatures.argtypes = [lx_uint32, ctypes.POINTER(Vector_CAM_FeatureValue)]
+dscam.CAM_SetFeatures.restype = lx_result
 
 # Retrieves a feature's description
 dscam.CAM_GetFeatureDesc.argtypes = [lx_uint32, lx_uint32, ctypes.POINTER(CAM_FeatureDesc)]
@@ -199,6 +202,23 @@ def GetAllFeatures(camera_handle):
     return features
 
 
+def CAM_SetFeatures(camera_handle, vect_feature_value):
+    """
+        Sets selected set of features.
+
+        :param camera_handle: The handle to the camera device.
+        :param vect_feature_value: Vector_CAM_FeatureValue object to input.
+        :return: None if successful, raises RuntimeError otherwise.
+        """
+    result = dscam.CAM_SetFeatures(camera_handle, byref(vect_feature_value))
+    if result != LX_OK:
+        print("  >CAM_SetFeatures : ERROR")
+        # Break the code since we are input values
+        raise RuntimeError(f"Failed to set features, error code: {result}")
+
+    print("  >CAM_SetFeatures : DONE")
+
+
 def GetAllFeaturesDesc(camera_handle, features):
     """
     Retrieves descriptions for all features.
@@ -280,3 +300,48 @@ def CAM_SetEventCallback(camera_handle, callback_func):
     if result != LX_OK:
         raise RuntimeError(f"Failed to set event callback, error code: {result}")
     return wrapped_callback  # Keep a reference to prevent garbage collection
+
+
+def set_trigger_mode(camera_handle, mode):
+    print(" Trigger mode set...")
+    # Prepare the feature value for setting the trigger mode
+    feature_array = (CAM_FeatureValue * 1)()  # Array of one CAM_FeatureValue
+    feature_array[0].uiFeatureId = ECamFeatureId.eTriggerMode.value  # Assuming this is the correct feature ID
+    feature_array[0].stVariant.eVarType = ECamVariantRunType.evrt_uint32.value
+    feature_array[0].stVariant.ui32Value = mode.value
+
+    # Prepare the Vector_CAM_FeatureValue
+    vect_feature_value = Vector_CAM_FeatureValue()
+    vect_feature_value.uiCountUsed = 1
+    vect_feature_value.uiCapacity = 1
+    vect_feature_value.uiPauseTransfer = 0
+    vect_feature_value.pstFeatureValue = cast(feature_array, POINTER(CAM_FeatureValue))
+
+    # Set the features
+    CAM_SetFeatures(camera_handle, vect_feature_value)
+    print(" Trigger mode set successfully.")
+
+def start_image_transfer(camera_handle):
+    # Start image transfer using CAM_Command with CAM_CMD_START_FRAMETRANSFER
+    print(" Starting image transfer...")
+
+    # Create an instance of CAM_CMD_StartFrameTransfer
+    start_frame_transfer_cmd = CAM_CMD_StartFrameTransfer()
+    start_frame_transfer_cmd.uiImageBufferNum = DEF_DRIVER_BUFFER_NUM
+
+    # Start image transfer using CAM_Command
+    result = CAM_Command(camera_handle, CAM_CMD_START_FRAMETRANSFER, start_frame_transfer_cmd)
+    if result != LX_OK:
+        raise RuntimeError(f"Failed to start image transfer, error code: {result}")
+
+    print(" Image transfer started successfully.")
+
+
+def capture_image(camera_handle):
+    # Capture image using CAM_Command with CAM_CMD_ONEPUSH_SOFTTRIGGER
+    print("capture_image")
+
+
+def stop_image_transfer(camera_handle):
+    # Stop image transfer using CAM_Command with CAM_CMD_STOP_FRAMETRANSFER
+    print("stop_image_transfer")
