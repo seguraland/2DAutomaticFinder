@@ -1,5 +1,5 @@
 # dscamlib/__init__.py
 from .definitions import *
-from . import functions
-from . import structures
-from . import utils
+from .functions import *
+from .structures import *
+from .utils import *

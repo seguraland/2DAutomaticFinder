@@ -1,8 +1,19 @@
 # example_usage.py
-from dscamlib.functions import *
-from dscamlib.definitions.other_definitions import CAM_CMD_GET_FRAMESIZE
-from dscamlib.structures import CAM_CMD_GetFrameSize
-from dscamlib.utils import save_image
+import os
+
+# Check if the script is running in PyCharm
+if 'PYCHARM_HOSTED' in os.environ:
+    # PyCharm specific imports
+    from dscamlib.dscamlib.functions import *
+    from dscamlib.dscamlib.definitions.other_definitions import CAM_CMD_GET_FRAMESIZE
+    from dscamlib.dscamlib.structures import CAM_CMD_GetFrameSize
+    from dscamlib.dscamlib.utils import save_image, event_callback
+else:
+    # Imports for other environments
+    from dscamlib.functions import *
+    from dscamlib.definitions.other_definitions import CAM_CMD_GET_FRAMESIZE
+    from dscamlib.structures import CAM_CMD_GetFrameSize
+    from dscamlib.utils import save_image, event_callback
 
 # Default save path for an image
 DEF_SAVE_PATH = "path/to/save/image.jpg"
@@ -26,6 +37,9 @@ def run_example():
             if success:
                 print(f"Opened camera with handle: {camera_handle}")
 
+                # Set event callback for image reception
+                wrapped_callback = CAM_SetEventCallback(camera_handle, event_callback)
+
                 # Additional camera operations here...
                 # Get and print all features of the camera
                 features = GetAllFeatures(camera_handle)
@@ -33,12 +47,17 @@ def run_example():
                     print("Features: ", features)
 
                     # Get and print all feature descriptions
-                    # feature_descs = GetAllFeaturesDesc(camera_handle, features)
-                    # print(feature_descs)
-                    # if isinstance(feature_descs, list):
-                    #     print("Feature Descriptions: ", feature_descs)
-                    # else:
-                    #     print(feature_descs)  # Error message
+                    feature_descs = GetAllFeaturesDesc(camera_handle, features)
+                    if isinstance(feature_descs, list):
+                        print("Feature Descriptions:")
+                        for idx, desc in enumerate(feature_descs):
+                            print(f"FDES {idx + 1}:")
+                            for key, value in desc.items():
+                                print(f"  {key}: {value}")
+                            print()  # Add an empty line for better readability
+                    else:
+                        print(feature_descs)
+
                 else:
                     print(features)  # Error message
 
@@ -85,7 +104,7 @@ def prepare_receive_image(camera_handle):
 
     # Send the command to get the frame size
     print(f"Sending command to get frame size for camera handle: {camera_handle}")
-    result = CAM_Command(camera_handle, "CAM_CMD_GET_FRAMESIZE", frame_size_command)
+    result = CAM_Command(camera_handle, CAM_CMD_GET_FRAMESIZE, frame_size_command)
 
     # Check the result of the command
     if result != LX_OK:

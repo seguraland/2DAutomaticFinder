@@ -1,4 +1,6 @@
 from .definitions.error_codes import *
+from .structures import CAM_Event
+from .definitions.constants import ECamEventType, ECamFeatureDescType
 
 
 def get_error_message(error_code):
@@ -19,5 +21,54 @@ def get_error_message(error_code):
     return error_messages.get(error_code, f"Unknown error | Code {error_code}")
 
 
+def fd_area_to_dict(area_data):
+    return {
+        "stMin": area_data.stMin.to_dict(),
+        "stMax": area_data.stMax.to_dict(),
+        "stRes": area_data.stRes.to_dict(),
+        "stDef": area_data.stDef.to_dict(),
+    }
+
+
+def process_feature_desc(feature_desc):
+    readable_desc = {
+        "Feature ID": feature_desc.uiFeatureId,
+        "List Count": feature_desc.uiListCount,
+        "Description Type": ECamFeatureDescType(feature_desc.eFeatureDescType).name,
+    }
+
+    # Check the type of feature description and process accordingly
+    if feature_desc.eFeatureDescType == ECamFeatureDescType.edesc_Area.value:
+        readable_desc["stArea"] = fd_area_to_dict(feature_desc.union_data.stArea)
+
+    return readable_desc
+
+
 def save_image(stImage, path):
     print(stImage)
+
+
+def event_callback(camera_handle, event_ptr, user_data):
+    # Access the event structure
+    event = event_ptr.contents
+
+    # Check the event type and respond accordingly
+    if event.eEventType == ECamEventType.ecetImageReceived.value:
+        print("Image received event detected")
+        # Add logic to handle the image reception
+        # ...
+
+    elif event.eEventType == ECamEventType.ecetFeatureChanged.value:
+        print("Feature changed event detected")
+        # Handle feature change
+        # ...
+
+    elif event.eEventType == ECamEventType.ecetExposureEnd.value:
+        print("Exposure end event detected")
+        # Handle exposure end
+        # ...
+
+    # Add additional elif blocks for other event types as needed
+
+    else:
+        print(f"Unknown event type: {event.eEventType}")

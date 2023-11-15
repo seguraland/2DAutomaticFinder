@@ -4,13 +4,14 @@ import ctypes
 dscam = ctypes.CDLL('./DSCam.dll')
 
 # Define the Other Definition code
-CAM_VERSION_MAX = 16  
+CAM_VERSION_MAX = 16
 CAM_NAME_MAX = 32
 CAM_ERRMSG_MAX = 256
-CAM_FEA_CAPACITY = 10 
+CAM_FEA_CAPACITY = 10
 
 # Define the success code
 LX_OK = 0
+
 
 class CAM_Device(ctypes.Structure):
     _fields_ = [
@@ -24,6 +25,7 @@ class CAM_Device(ctypes.Structure):
         ("wszCameraName", ctypes.c_wchar * CAM_NAME_MAX),
     ]
 
+
 class CAM_FeatureValue(ctypes.Structure):
     _fields_ = [
         ("uiFeatureId", ctypes.c_uint32),
@@ -31,6 +33,7 @@ class CAM_FeatureValue(ctypes.Structure):
         ("stVariant", ctypes.c_ubyte),
         ("ucTransSize", ctypes.c_ubyte)  # Application doesn't use this
     ]
+
 
 class Vector_CAM_FeatureValue(ctypes.Structure):
     _fields_ = [
@@ -49,7 +52,8 @@ dscam.CAM_OpenDevices.restype = ctypes.c_int
 dscam.CAM_CloseDevices.restype = ctypes.c_int
 
 # Define CAM_Open Function
-dscam.CAM_Open.argtypes = [ctypes.c_uint32, ctypes.POINTER(ctypes.c_uint32), ctypes.c_uint32, ctypes.POINTER(ctypes.c_wchar)]
+dscam.CAM_Open.argtypes = [ctypes.c_uint32, ctypes.POINTER(ctypes.c_uint32), ctypes.c_uint32,
+                           ctypes.POINTER(ctypes.c_wchar)]
 dscam.CAM_Open.restype = ctypes.c_int
 
 # Define CAM_Close Function
@@ -65,35 +69,33 @@ def GetAllFeatures(camera_handle):
     # Prepare the Vector_CAM_FeatureValue
     vectFeatureValue = Vector_CAM_FeatureValue()
     vectFeatureValue.uiCapacity = CAM_FEA_CAPACITY
-    vectFeatureValue.uiCountUsed = 0  
-    vectFeatureValue.uiPauseTransfer = 0  
+    vectFeatureValue.uiCountUsed = 0
+    vectFeatureValue.uiPauseTransfer = 0
     vectFeatureValue.pstFeatureValue = ctypes.cast(feature_array, ctypes.POINTER(CAM_FeatureValue))
 
     # Call CAM_GetAllFeatures
-    result = dscam.CAM_GetAllFeatures(camera_handle, ctypes.byref(vectFeatureValue))
+    result_features = dscam.CAM_GetAllFeatures(camera_handle, ctypes.byref(vectFeatureValue))
 
-    if result == LX_OK:
+    if result_features == LX_OK:
         # Process the features
         print(f"Number of features retrieved: {vectFeatureValue.uiCountUsed}")
-        for i in range(vectFeatureValue.uiCountUsed):
-            feature = vectFeatureValue.pstFeatureValue[i]
+        for ivec in range(vectFeatureValue.uiCountUsed):
+            feature = vectFeatureValue.pstFeatureValue[ivec]
             print(f"Feature ID: {feature.uiFeatureId}")
-#            print(f"Variant: {feature.stVariant}")
-#            print(f"Trans Size: {feature.ucTransSize}")
-            
+    #            print(f"Variant: {feature.stVariant}")
+    #            print(f"Trans Size: {feature.ucTransSize}")
+
     else:
         print("Failed to get all features")
 
     # Return the results or feature list as needed
 
 
-
-
 uiDeviceCount = ctypes.c_uint32()
 ppstCamDevice = ctypes.POINTER(CAM_Device)()
 
 result = dscam.CAM_OpenDevices(ctypes.byref(uiDeviceCount), ctypes.byref(ppstCamDevice))
-if result == LX_OK: 
+if result == LX_OK:
     print(f"Successfully opened {uiDeviceCount.value} devices.")
 
     for i in range(uiDeviceCount.value):
@@ -101,37 +103,34 @@ if result == LX_OK:
         print(f"Device {i}:")
         print(f"  Type: {device.eCamDeviceType}")
         print(f"  Serial Number: {device.uiSerialNo}")
-#        print(f"  Firmware Version: {device.wszFwVersion}")
-#        print(f"  Fpga Version: {device.wszFpgaVersion}")
-#        print(f"  Usb Version: {device.wszUsbVersion}")
-#        print(f"  Usb Dc Version: {device.wszUsbDcVersion}")
-#        print(f"  Driver Version: {device.wszDriverVersion}")
+        #        print(f"  Firmware Version: {device.wszFwVersion}")
+        #        print(f"  Fpga Version: {device.wszFpgaVersion}")
+        #        print(f"  Usb Version: {device.wszUsbVersion}")
+        #        print(f"  Usb Dc Version: {device.wszUsbDcVersion}")
+        #        print(f"  Driver Version: {device.wszDriverVersion}")
         print(f"  Camera Name: {device.wszCameraName}")
-        
+
 else:
     print("Failed to open devices.")
     # Handle error
 
-
 # Call CAM_Open (NEED CLOSE)
-uiDeviceIndex = ctypes.c_uint32(0)              # Choose the device index (0 for the first device, for example)
-uiCameraHandle = ctypes.c_uint32()              # Variable to store the camera handle
-szError = (ctypes.c_wchar * CAM_ERRMSG_MAX)()   # Error message buffer
+uiDeviceIndex = ctypes.c_uint32(0)  # Choose the device index (0 for the first device, for example)
+uiCameraHandle = ctypes.c_uint32()  # Variable to store the camera handle
+szError = (ctypes.c_wchar * CAM_ERRMSG_MAX)()  # Error message buffer
 
 lResult = dscam.CAM_Open(uiDeviceIndex, ctypes.byref(uiCameraHandle), CAM_ERRMSG_MAX, szError)
 if lResult == LX_OK:
     print(f"Successfully opened camera with handle: {uiCameraHandle.value}")
-    #Disp feature list
-    #m_lstFeature.DeleteAllItems(); << GUI? remove 
-
+    # Disp feature list
+    # m_lstFeature.DeleteAllItems(); << GUI? remove
     # Call the GetAllFeatures function
     GetAllFeatures(uiCameraHandle)
-    
-    #GetAllFeaturesDesc();
-    #DispAllFeaturesName();
-    #DispAllFeaturesValue();
-    #StartGetImageThread();
-    #m_isOpened = TRUE;
-    
+    # GetAllFeaturesDesc();
+    # DispAllFeaturesName();
+    # DispAllFeaturesValue();
+    # StartGetImageThread();
+    # m_isOpened = TRUE;
+
 else:
     print(f"Open Error. [{szError.value}]")

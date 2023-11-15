@@ -1,5 +1,4 @@
 import ctypes
-from .definitions.constants import *
 from .definitions.other_definitions import *
 
 
@@ -46,6 +45,14 @@ class CAM_Area(ctypes.Structure):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def to_dict(self):
+        """Converts the CAM_Area instance to a dictionary."""
+        return {
+            "uiLeft": self.uiLeft,
+            "uiTop": self.uiTop,
+            "uiWidth": self.uiWidth,
+            "uiHeight": self.uiHeight
+        }
 
 # CAM_Position Structure
 class CAM_Position(ctypes.Structure):
@@ -295,12 +302,24 @@ class CAM_FeatureDescFormat(ctypes.Structure):
 
 
 # CAM_FeatureDesc Structure
+class CAM_FeatureDescUnion(ctypes.Union):
+    _fields_ = [
+        ("stElementList", CAM_FeatureDescElement * CAM_FEA_DESC_LIST_MAX),
+        ("stRange", CAM_FeatureDescRange),
+        ("stArea", CAM_FeatureDescArea),
+        ("stPosition", CAM_FeatureDescPosition),
+        ("stSize", CAM_FeatureDescSize),
+        ("stTriggerOption", CAM_FeatureDescTriggerOption),
+        ("stFormatList", CAM_FeatureDescFormat * CAM_FEA_DESC_LIST_MAX)
+    ]
+
+
 class CAM_FeatureDesc(ctypes.Structure):
     _fields_ = [
         ("uiFeatureId", ctypes.c_uint32),
         ("uiListCount", ctypes.c_uint32),
-        ("eFeatureDescType", ctypes.c_int),         # Using ctypes.c_int for the enum field
-        ("union_data", ctypes.c_void_p)             # Define the appropriate union type
+        ("eFeatureDescType", ctypes.c_int),
+        ("union_data", CAM_FeatureDescUnion)
     ]
 
 

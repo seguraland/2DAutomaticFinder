@@ -1,9 +1,9 @@
 import ctypes
 from pathlib import Path
-from .structures import CAM_Device, Vector_CAM_FeatureValue, CAM_FeatureValue, CAM_FeatureDesc, CAM_Image
+from .structures import CAM_Device, Vector_CAM_FeatureValue, CAM_FeatureValue, CAM_FeatureDesc, CAM_Image, CAM_Event
 from .definitions.error_codes import LX_OK
 from .definitions.other_definitions import *
-from .utils import get_error_message
+from .utils import get_error_message, process_feature_desc
 
 # Determine the absolute path to the 'DSCam.dll' file
 dll_path = Path(__file__).resolve().parent.parent / 'binary' / 'DSCam.dll'
@@ -55,15 +55,15 @@ dscam.CAM_GetImage.restype = lx_result
 dscam.CAM_Command.argtypes = [lx_uint32, ctypes.POINTER(ctypes.c_wchar), ctypes.c_void_p]
 dscam.CAM_Command.restype = lx_result
 
-
 # Polls for an event from the camera
-# #dscam.CAM_EventPolling.argtypes = [lx_uint32, ctypes.c_void_p, ctypes.c_int, ctypes.POINTER(CAM_Event)]
-# #dscam.CAM_EventPolling.restype = lx_result
+dscam.CAM_EventPolling.argtypes = [lx_uint32, ctypes.c_void_p, ctypes.c_int, ctypes.POINTER(CAM_Event)]
+dscam.CAM_EventPolling.restype = lx_result
 
 # Sets a callback function for camera events
-# #FCAM_EventCallback = ctypes.CFUNCTYPE(None, lx_uint32, ctypes.POINTER(CAM_Event), ctypes.c_void_p)
-# #dscam.CAM_SetEventCallback.argtypes = [lx_uint32, FCAM_EventCallback, ctypes.c_void_p]
-# #dscam.CAM_SetEventCallback.restype = lx_result
+FCAM_EventCallback = ctypes.CFUNCTYPE(None, lx_uint32, ctypes.POINTER(CAM_Event), ctypes.c_void_p)
+dscam.CAM_SetEventCallback.argtypes = [lx_uint32, FCAM_EventCallback, ctypes.c_void_p]
+dscam.CAM_SetEventCallback.restype = lx_result
+
 
 # Sets a callback function for notifications
 # #FCAM_NoticeCallback = ctypes.CFUNCTYPE(None, lx_uint32, ctypes.POINTER(CAM_Notice), ctypes.c_void_p)
@@ -214,18 +214,14 @@ def GetAllFeaturesDesc(camera_handle, features):
 
         # Assuming CAM_FeatureDesc is a ctypes structure you have defined
         feature_desc = CAM_FeatureDesc()
-        print(feature_desc)
         result = dscam.CAM_GetFeatureDesc(camera_handle, uiFeatureId, ctypes.byref(feature_desc))
-        print(result)
         if result != LX_OK:
             return f"Failed to get description for feature {uiFeatureId}, error code: {result}"
 
-        # Process the feature description as needed
-        # For example, convert the description to a more readable format
-        # ##### readable_desc = process_feature_desc(feature_desc)  # Implement this function as needed
-        # ##### readable_desc = process_feature_desc(feature_desc)  # Then pass readable_desc instead of feature_desc
+        # Process the feature description
+        readable_desc = process_feature_desc(feature_desc)
 
-        feature_descs.append(feature_desc)
+        feature_descs.append(readable_desc)
 
     return feature_descs
 
@@ -266,3 +262,21 @@ def CAM_Command(camera_handle, command, data):
     result = dscam.CAM_Command(camera_handle, command, ctypes.byref(data))
 
     return result
+
+
+# Wrapper for CAM_EventPolling
+def CAM_EventPolling(camera_handle, event_type):
+    event = CAM_Event()
+    result = dscam.CAM_EventPolling(camera_handle, ctypes.c_void_p(), event_type, ctypes.byref(event))
+    if result != LX_OK:
+        raise RuntimeError(f"Failed to poll event, error code: {result}")
+    return event
+
+
+# Wrapper for CAM_SetEventCallback
+def CAM_SetEventCallback(camera_handle, callback_func):
+    wrapped_callback = FCAM_EventCallback(callback_func)
+    result = dscam.CAM_SetEventCallback(camera_handle, wrapped_callback, ctypes.c_void_p())
+    if result != LX_OK:
+        raise RuntimeError(f"Failed to set event callback, error code: {result}")
+    return wrapped_callback  # Keep a reference to prevent garbage collection
