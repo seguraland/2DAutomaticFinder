@@ -1,12 +1,14 @@
 import ctypes
 from ctypes import cast, POINTER, byref
 from pathlib import Path
-from .structures import CAM_Device, Vector_CAM_FeatureValue, CAM_FeatureValue, CAM_FeatureDesc, CAM_Image, CAM_Event, CAM_CMD_StartFrameTransfer
+from .structures import (
+    CAM_CMD_GetFrameSize, CAM_CMD_StartFrameTransfer, CameraState,
+    CAM_Device, Vector_CAM_FeatureValue, CAM_FeatureValue, CAM_FeatureDesc, CAM_Image, CAM_Event)
 from .definitions.error_codes import LX_OK
 from .definitions.other_definitions import *
-from .definitions.constants import ECamFeatureId, ECamVariantRunType
+from .definitions.constants import (
+    ECamFeatureId, ECamVariantRunType, ECamTriggerMode, ECamEventType)
 from .utils import get_error_message, process_feature_desc
-
 
 # Determine the absolute path to the 'DSCam.dll' file
 dll_path = Path(__file__).resolve().parent.parent / 'binary' / 'DSCam.dll'
@@ -216,7 +218,7 @@ def CAM_SetFeatures(camera_handle, vect_feature_value):
         # Break the code since we are input values
         raise RuntimeError(f"Failed to set features, error code: {result}")
 
-    print("  >CAM_SetFeatures : DONE")
+    print("     >CAM_SetFeatures : DONE")
 
 
 def GetAllFeaturesDesc(camera_handle, features):
@@ -279,7 +281,13 @@ def CAM_Command(camera_handle, command, data):
     # and 'data' is an instance of the appropriate command structure.
     # The implementation of this function will depend on how CAM_Command is defined in the SDK.
 
-    result = dscam.CAM_Command(camera_handle, command, ctypes.byref(data))
+    # Check if data is None or an actual ctypes instance
+    if data is not None:
+        data_ref = ctypes.byref(data)
+    else:
+        data_ref = None
+
+    result = dscam.CAM_Command(camera_handle, command, data_ref)
 
     return result
 
@@ -294,9 +302,9 @@ def CAM_EventPolling(camera_handle, event_type):
 
 
 # Wrapper for CAM_SetEventCallback
-def CAM_SetEventCallback(camera_handle, callback_func):
+def CAM_SetEventCallback(camera_handle, callback_func, user_data):
     wrapped_callback = FCAM_EventCallback(callback_func)
-    result = dscam.CAM_SetEventCallback(camera_handle, wrapped_callback, ctypes.c_void_p())
+    result = dscam.CAM_SetEventCallback(camera_handle, wrapped_callback, user_data)
     if result != LX_OK:
         raise RuntimeError(f"Failed to set event callback, error code: {result}")
     return wrapped_callback  # Keep a reference to prevent garbage collection
@@ -321,6 +329,45 @@ def set_trigger_mode(camera_handle, mode):
     CAM_SetFeatures(camera_handle, vect_feature_value)
     print(" Trigger mode set successfully.")
 
+
+def get_image_frame_size(camera_handle):
+    print("Preparing to receive frame size...")
+
+    # Create an instance of the structure to hold the frame size command result
+    frame_size_command = CAM_CMD_GetFrameSize()
+
+    # Send the command to get the frame size
+    result = CAM_Command(camera_handle, CAM_CMD_GET_FRAMESIZE, frame_size_command)
+
+    # Check the result of the command
+    if result != LX_OK:
+        raise RuntimeError(f"Failed to get frame size, error code: {result}")
+
+    # Print the obtained frame size
+    uiFrameSize = frame_size_command.uiFrameSize
+    uiFrameInterval = frame_size_command.uiFrameInterval
+    uiRShutterDelay = frame_size_command.uiRShutterDelay
+
+    print(f"     >Obtained uiFrameSize: {uiFrameSize}")
+    print(f"     >Obtained uiFrameInterval: {uiFrameInterval}")
+    print(f"     >Obtained uiRShutterDelay: {uiRShutterDelay}")
+
+    return uiFrameSize
+
+
+def run_capture_sequence(camera_handle):
+    print("Run image capture sequence...")
+    set_trigger_mode(camera_handle, ECamTriggerMode.ectmSoft)
+    start_image_transfer(camera_handle)
+    capture_image(camera_handle)
+    # Only in Mode : ectmOff
+    # one_push_soft_trigger(camera_handle)
+    # The image reception will be handled in the event_callback
+
+    end_image_transfer(camera_handle)
+    print("Run image capture sequence DONE")
+
+
 def start_image_transfer(camera_handle):
     # Start image transfer using CAM_Command with CAM_CMD_START_FRAMETRANSFER
     print(" Starting image transfer...")
@@ -337,11 +384,81 @@ def start_image_transfer(camera_handle):
     print(" Image transfer started successfully.")
 
 
+def end_image_transfer(camera_handle):
+    # End image transfer using CAM_Command with CAM_CMD_STOP_FRAMETRANSFER
+    print(" Stopping image transfer...")
+
+    # Stop image transfer using CAM_Command
+    result = CAM_Command(camera_handle, CAM_CMD_STOP_FRAMETRANSFER, None)
+    if result != LX_OK:
+        raise RuntimeError(f"Failed to stop image transfer, error code: {result}")
+
+    print(" Image transfer stopped successfully.")
+
+
+def one_push_soft_trigger(camera_handle):
+    # Start image transfer using CAM_Command with CAM_CMD_ONEPUSH_SOFTTRIGGER
+    print(" One push soft trigger...")
+
+    # Start image transfer using CAM_Command
+    result = CAM_Command(camera_handle, CAM_CMD_ONEPUSH_SOFTTRIGGER, None)
+    if result != LX_OK:
+        raise RuntimeError(f"Failed to one_push_soft_trigger, error code: {result}")
+
+    print(" One push soft triggered successfully.")
+
+
+def one_push_soft_trigger_cancel(camera_handle):
+    # Start image transfer using CAM_Command with CAM_CMD_ONEPUSH_TRIGGERCANCEL
+    print(" One push soft trigger...")
+
+    # Start image transfer using CAM_Command
+    result = CAM_Command(camera_handle, CAM_CMD_ONEPUSH_TRIGGERCANCEL, None)
+    if result != LX_OK:
+        raise RuntimeError(f"Failed to one_push_soft_trigger_cancel, error code: {result}")
+
+    print(" One push soft trigger canceled successfully.")
+
+
 def capture_image(camera_handle):
-    # Capture image using CAM_Command with CAM_CMD_ONEPUSH_SOFTTRIGGER
-    print("capture_image")
+    print("Capturing image...")
+
+    frame_size = get_image_frame_size(camera_handle)
+
+    # Attempt to capture the image
+    stImage, error_msg = CAM_GetImage(camera_handle, True, frame_size)
+    if error_msg:
+        print(f"Failed to capture image: {error_msg}")
+    else:
+        # Process or save the captured image
+        print("sdf image: {dfdf}")
+        # save_image(stImage, 'path/to/save/image')
+
+    # Optionally, stop image transfer if it's a one-time capture
+    # one_push_soft_trigger_cancel(camera_handle)
+    # end_image_transfer(camera_handle)
 
 
-def stop_image_transfer(camera_handle):
-    # Stop image transfer using CAM_Command with CAM_CMD_STOP_FRAMETRANSFER
-    print("stop_image_transfer")
+def event_callback(camera_handle, event_ptr, user_data):
+    # Access the event structure
+    event = event_ptr.contents
+    state = ctypes.cast(user_data, ctypes.POINTER(CameraState)).contents
+
+    if state.capture_enabled:
+        # Check the event type and respond accordingly
+        if event.eEventType == ECamEventType.ecetImageReceived.value:
+            print("Image received event detected")
+            state.capture_enabled = False
+            capture_image(camera_handle)
+
+        elif event.eEventType == ECamEventType.ecetFeatureChanged.value:
+            print("Feature changed event detected")
+
+        elif event.eEventType == ECamEventType.ecetExposureEnd.value:
+            print("Exposure end event detected")
+            # capture_image(camera_handle)
+
+        # Add additional elif blocks for other event types as needed
+
+        else:
+            print(f"Unknown event type: {event.eEventType}")

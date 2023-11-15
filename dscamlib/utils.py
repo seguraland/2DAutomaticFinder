@@ -52,30 +52,4 @@ def save_image(stImage, path):
     print(stImage)
 
 
-def event_callback(camera_handle, event_ptr, user_data):
-    # Access the event structure
-    event = event_ptr.contents
-
-    # Check the event type and respond accordingly
-    if event.eEventType == ECamEventType.ecetImageReceived.value:
-        print("Image received event detected")
-        # Add logic to handle the image reception
-        # ...
-
-    elif event.eEventType == ECamEventType.ecetFeatureChanged.value:
-        print("Feature changed event detected")
-        # Handle feature change
-        # ...
-
-    elif event.eEventType == ECamEventType.ecetExposureEnd.value:
-        print("Exposure end event detected")
-        print("")
-        # Handle exposure end
-        # ...
-
-    # Add additional elif blocks for other event types as needed
-
-    else:
-        print(f"Unknown event type: {event.eEventType}")
-
 

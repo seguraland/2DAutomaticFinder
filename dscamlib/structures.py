@@ -54,6 +54,7 @@ class CAM_Area(ctypes.Structure):
             "uiHeight": self.uiHeight
         }
 
+
 # CAM_Position Structure
 class CAM_Position(ctypes.Structure):
     _fields_ = [
@@ -151,7 +152,7 @@ class CAM_Variant_Union(ctypes.Union):
 
 class CAM_Variant(ctypes.Structure):
     _fields_ = [
-        ("eVarType", ctypes.c_int),        # Using ctypes.c_int for the enum field
+        ("eVarType", ctypes.c_int),  # Using ctypes.c_int for the enum field
         ("Data", CAM_Variant_Union),
     ]
 
@@ -327,13 +328,13 @@ class CAM_FeatureDesc(ctypes.Structure):
 # CAM_Image Structure
 class CAM_Image(ctypes.Structure):
     _fields_ = [
-        ("pDataBuffer", ctypes.c_void_p),       # pDataBuffer is set in the driver (includes image info)
+        ("pDataBuffer", ctypes.c_void_p),  # pDataBuffer is set in the driver (includes image info)
         ("uiDataBufferSize", ctypes.c_uint32),  # uiDataBufferSize is set by the application.
-        ("uiImageSize", ctypes.c_uint32),       # set in the SDK (from driver) or used by the application.
-        ("uiEndTime", ctypes.c_uint32),         # set in the SDK (from driver) or used by the application.
-        ("uiEndTime64", ctypes.c_uint64),       # set in the SDK (from driver) or used by the application.
-        ("uiFrameCount", ctypes.c_uint64),      # set in the SDK (from driver) or used by the application.
-        ("uiRefCount", ctypes.c_uint32)         # set in the SDK (from driver) or used by the application.
+        ("uiImageSize", ctypes.c_uint32),  # set in the SDK (from driver) or used by the application.
+        ("uiEndTime", ctypes.c_uint32),  # set in the SDK (from driver) or used by the application.
+        ("uiEndTime64", ctypes.c_uint64),  # set in the SDK (from driver) or used by the application.
+        ("uiFrameCount", ctypes.c_uint64),  # set in the SDK (from driver) or used by the application.
+        ("uiRefCount", ctypes.c_uint32)  # set in the SDK (from driver) or used by the application.
     ]
 
     def __init__(self):
@@ -439,9 +440,9 @@ class CAM_ImageInfoEx(ctypes.Structure):
 # CAM_CMD_GetFrameSize Structure
 class CAM_CMD_GetFrameSize(ctypes.Structure):
     _fields_ = [
-        ("uiFrameSize", ctypes.c_uint32),      # [out] frame buffer size (include ImageInfo)
+        ("uiFrameSize", ctypes.c_uint32),  # [out] frame buffer size (include ImageInfo)
         ("uiFrameInterval", ctypes.c_uint32),  # [out] frame interval
-        ("uiRShutterDelay", ctypes.c_uint32)   # [out] RSutter delay (usec)
+        ("uiRShutterDelay", ctypes.c_uint32)  # [out] RSutter delay (usec)
     ]
 
 
@@ -470,7 +471,7 @@ class CAM_CMD_FrameDropless(ctypes.Structure):
 # CAM_CMD_Grouping Structure
 class CAM_CMD_Grouping(ctypes.Structure):
     _fields_ = [
-        ("bSet", ctypes.c_bool),    # [in] true:Set, false:Get
+        ("bSet", ctypes.c_bool),  # [in] true:Set, false:Get
         ("ucGroup", ctypes.c_ubyte * CAM_DEVICE_MAX)  # [in/out]
     ]
 
@@ -505,7 +506,7 @@ class CAM_CMD_FovSize(ctypes.Structure):
     _fields_ = [
         ("uiFovType", ctypes.c_uint32),
         ("bFreeRoi", ctypes.c_bool),  # [in] Is free setting
-        ("stFovSize", CAM_Size),     # [out] FovSize-Value
+        ("stFovSize", CAM_Size),  # [out] FovSize-Value
         ("stDeskSize", CAM_FeatureDescSize),  # [out] RoiSize-Desk
         ("stDeskPosition", CAM_FeatureDescPosition),  # [out] RoiPosition-Desk
         ("stDeskArea", CAM_FeatureDescArea)  # [out] MeteringArea-Desk
@@ -515,9 +516,9 @@ class CAM_CMD_FovSize(ctypes.Structure):
 # CAM_CMD_FovRoi Structure
 class CAM_CMD_FovRoi(ctypes.Structure):
     _fields_ = [
-        ("stSize", CAM_Size),       # [in] RoiSize-Value
+        ("stSize", CAM_Size),  # [in] RoiSize-Value
         ("stPosition", CAM_Position),  # [in] RoiPosition-Value
-        ("stArea", CAM_Area)         # [in] MeteringArea-Value
+        ("stArea", CAM_Area)  # [in] MeteringArea-Value
     ]
 
 
@@ -674,3 +675,8 @@ class TEST_CAM_CMD_SceneAutoMode(ctypes.Structure):
         ("bSet", ctypes.c_bool),  # [in] true:Set, false:Get
         ("bMode", ctypes.c_bool)  # [in/out] true:ON, false:OFF
     ]
+
+
+# For Callbacks
+class CameraState(ctypes.Structure):
+    _fields_ = [("capture_enabled", ctypes.c_bool)]
