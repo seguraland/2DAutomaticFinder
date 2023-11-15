@@ -24,76 +24,93 @@ DEF_DEVICE_INDEX = 1
 
 def run_example():
     print("Running example...")
-    # Open devices and print their details
     devices = CAM_OpenDevices()
     if isinstance(devices, list):
         print(f"Successfully opened {len(devices)} devices.")
         for i, device in enumerate(devices):
             print(f"Device {i}: {device}")
 
-        # For simplicity, let's open the first device if available
-        if devices:
-            success, camera_handle, error_msg = CAM_Open(DEF_DEVICE_INDEX)
-            if success:
-                print(f"Opened camera with handle: {camera_handle}")
+        camera_handle = open_camera()
+        if camera_handle:
+            # Set event callback for image reception
+            wrapped_callback = CAM_SetEventCallback(camera_handle, event_callback)
 
-                # Set event callback for image reception
-                wrapped_callback = CAM_SetEventCallback(camera_handle, event_callback)
+            features = print_features(camera_handle)
+            if features:
+                print_feature_descriptions(camera_handle, features)
 
-                # Additional camera operations here...
-                # Get and print all features of the camera
-                features = GetAllFeatures(camera_handle)
-                if isinstance(features, list):
-                    print("Features: ", features)
+            image = prepare_and_capture_image(camera_handle)
+            if image:
+                # Image capture and save logic
+                pass
 
-                    # Get and print all feature descriptions
-                    feature_descs = GetAllFeaturesDesc(camera_handle, features)
-                    if isinstance(feature_descs, list):
-                        print("Feature Descriptions:")
-                        for idx, desc in enumerate(feature_descs):
-                            print(f"FDES {idx + 1}:")
-                            for key, value in desc.items():
-                                print(f"  {key}: {value}")
-                            print()  # Add an empty line for better readability
-                    else:
-                        print(feature_descs)
-
-                else:
-                    print(features)  # Error message
-
-                # Prepare for receiving an image and get the frame size
-                success, frame_size_or_error = prepare_receive_image(camera_handle)
-                if not success:
-                    print(frame_size_or_error)  # Print error message
-                    return
-
-                frame_size = frame_size_or_error
-                print(f"Using frame size: {frame_size} for image capture")
-
-                # Capture an image with the obtained frame size
-                stImage, error_msg = CAM_GetImage(camera_handle, True, frame_size)  # True for the latest image
-                if error_msg:
-                    print(error_msg)
-                else:
-                    # Save the image
-                    save_image(stImage, DEF_SAVE_PATH)
-
-                # Close the camera
-                close_msg = CAM_Close(camera_handle)
-                print(close_msg)
-            else:
-                print(f"Failed to open camera: {error_msg}")
+            close_camera(camera_handle)
 
     else:
         print(devices)  # Print error message
 
-    # Close all devices
-    close_msg = CAM_CloseDevices()
-    print(close_msg)
+    CAM_CloseDevices()
 
 
 if __name__ == "__main__":
     run_example()
+
+
+def open_camera():
+    success, camera_handle, error_msg = CAM_Open(DEF_DEVICE_INDEX)
+    if success:
+        print(f"Opened camera with handle: {camera_handle}")
+        return camera_handle
+    else:
+        print(f"Failed to open camera: {error_msg}")
+        return None
+
+
+def print_features(camera_handle):
+    features = GetAllFeatures(camera_handle)
+    if isinstance(features, list):
+        print("Features: ", features)
+        return features
+    else:
+        print(features)  # Error message
+        return None
+
+
+def print_feature_descriptions(camera_handle, features):
+    feature_descs = GetAllFeaturesDesc(camera_handle, features)
+    if isinstance(feature_descs, list):
+        print("Feature Descriptions:")
+        for idx, desc in enumerate(feature_descs):
+            print(f"FDES {idx + 1}:")
+            for key, value in desc.items():
+                print(f"  {key}: {value}")
+            print()  # Add an empty line for better readability
+    else:
+        print(feature_descs)
+
+
+def prepare_and_capture_image(camera_handle):
+    success, frame_size_or_error = prepare_receive_image(camera_handle)
+    if not success:
+        print(frame_size_or_error)  # Print error message
+        return None
+
+    frame_size = frame_size_or_error
+    print(f"Using frame size: {frame_size} for image capture")
+
+    stImage, error_msg = CAM_GetImage(camera_handle, True, frame_size)
+    if error_msg:
+        print(error_msg)
+        return None
+    else:
+        # Save the image
+        save_image(stImage, DEF_SAVE_PATH)
+        return stImage
+
+
+def close_camera(camera_handle):
+    close_msg = CAM_Close(camera_handle)
+    print(close_msg)
 
 
 def prepare_receive_image(camera_handle):

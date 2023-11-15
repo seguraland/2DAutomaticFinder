@@ -40,7 +40,10 @@ def process_feature_desc(feature_desc):
     # Check the type of feature description and process accordingly
     if feature_desc.eFeatureDescType == ECamFeatureDescType.edesc_Area.value:
         readable_desc["stArea"] = fd_area_to_dict(feature_desc.union_data.stArea)
+
     # Add more if needed
+    # if feature_desc.eFeatureDescType == ECamFeatureDescType.edesc_ElementList.value:
+    #     readable_desc["ElementList"] = feature_desc.union_data.stElementList
     # ...
 
     return readable_desc
