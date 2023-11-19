@@ -260,14 +260,14 @@ def CAM_GetImage(camera_handle, bNewRequired, frame_size):
     :return: A tuple (CAM_Image object, None) if successful, or (None, error message) if failed.
     """
     stImage = CAM_Image()
+    stImage.uiDataBufferSize = frame_size  # Set the size of the frame
 
     # Allocate memory for the image data
-    buffer = ctypes.create_string_buffer(frame_size)
-    # buffer = (ctypes.c_ubyte * frame_size)()
+    buffer = (ctypes.c_ubyte * frame_size)()
+    # buffer = ctypes.create_string_buffer(frame_size)
 
-    # Instead of casting, directly assign the memory address of the buffer to pDataBuffer
+    # # Instead of casting, directly assign the memory address of the buffer to pDataBuffer
     stImage.pDataBuffer = ctypes.cast(ctypes.addressof(buffer), ctypes.c_void_p)
-    # stImage.pDataBuffer = ctypes.cast(buffer, ctypes.c_void_p)
 
     uiRemained = ctypes.c_uint32()
     result = dscam.CAM_GetImage(camera_handle, bNewRequired, ctypes.byref(stImage), ctypes.byref(uiRemained))
@@ -473,7 +473,13 @@ def capture_image(camera_handle):
             print(f"{byte:02x} ", end='')
         print()
 
-        # Extracting image info from the buffer
+        # Optionally, you can also cast to CAM_ImageInfo and access fields directly
+        image_info = ctypes.cast(image_info_start, ctypes.POINTER(CAM_ImageInfo)).contents
+        print("Frame No:", image_info.usFrameNo)
+        print("Image Width:", image_info.usImageWidth)
+        print("Image Height:", image_info.usImageHeight)
+
+        # # Extracting image info from the buffer
         # # Cast the buffer address to the CAM_ImageInfo structure
         # buffer_as_bytes = ctypes.cast(stImage.pDataBuffer, ctypes.POINTER(ctypes.c_ubyte * stImage.uiImageSize))
         # image_info_address = ctypes.addressof(buffer_as_bytes.contents) + stImage.uiImageSize
