@@ -1,6 +1,7 @@
 # example_usage.py
 import os
-
+import ctypes
+import threading
 
 # Check if the script is running in PyCharm
 if 'PYCHARM_HOSTED' in os.environ:
@@ -24,30 +25,44 @@ DEF_SAVE_PATH = "path/to/save/image.jpg"
 # Default cam open
 DEF_DEVICE_INDEX = 1
 
+# Default debug prints Levels : 0:None , 1:Extreme, 2:Middle, 3:All
+DEBUG_PRINT = 1
+
 
 def run_example():
     print("Running example...")
     devices = CAM_OpenDevices()
     if isinstance(devices, list):
-        print(f"Successfully opened {len(devices)} devices.")
-        for i, device in enumerate(devices):
-            print(f"Device {i}: {device}")
+        if DEBUG_PRINT > 2:
+            print(f"Successfully opened {len(devices)} devices.")
+            for i, device in enumerate(devices):
+                print(f"Device {i}: {device}")
 
         camera_handle = open_camera()
         if camera_handle:
             # Set event callback for image reception
             camera_state = CameraState()
-            camera_state.capture_enabled = True  # Enable capturing initially
+            image_captured_event = threading.Event()
+
+            # Pack the camera state and the event into CallbackData
+            callback_data = CallbackData()
+            callback_data.camera_state = camera_state
+            callback_data.image_captured_event = image_captured_event
+
+            # Pass the CallbackData object to the callback
+            user_data = ctypes.pointer(callback_data)
 
             # Set up the callback
-            user_data = ctypes.pointer(camera_state)
             wrapped_callback = CAM_SetEventCallback(camera_handle, event_callback, user_data)
 
-            features = print_features(camera_handle)
+            features = print_features(camera_handle, DEBUG_PRINT)
             if features:
-                print_feature_descriptions(camera_handle, features)
+                print_feature_descriptions(camera_handle, features, DEBUG_PRINT)
 
-            run_capture_sequence(camera_handle)
+            run_capture_sequence(camera_handle, camera_state, image_captured_event)
+
+            # Wait for the image to be captured
+            image_captured_event.wait()
 
             close_camera(camera_handle)
 
@@ -71,27 +86,31 @@ def open_camera():
         return None
 
 
-def print_features(camera_handle):
+def print_features(camera_handle, debug=0):
     features = GetAllFeatures(camera_handle)
     if isinstance(features, list):
-        print("Features: ", features)
+        if debug > 2:
+            print("Features: ", features)
         return features
     else:
-        print(features)  # Error message
+        if debug > 1:
+            print(features)  # Error message
         return None
 
 
-def print_feature_descriptions(camera_handle, features):
+def print_feature_descriptions(camera_handle, features, debug=0):
     feature_descs = GetAllFeaturesDesc(camera_handle, features)
     if isinstance(feature_descs, list):
-        print("Feature Descriptions:")
+        if debug > 2:
+            print("Feature Descriptions:")
         for idx, desc in enumerate(feature_descs):
             print(f"FDES {idx + 1}:")
             for key, value in desc.items():
                 print(f"  {key}: {value}")
             print()  # Add an empty line for better readability
     else:
-        print(feature_descs)
+        if debug > 0:
+            print(feature_descs)
 
 
 def close_camera(camera_handle):

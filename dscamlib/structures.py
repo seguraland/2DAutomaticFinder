@@ -1,4 +1,6 @@
 import ctypes
+import threading
+
 from .definitions.other_definitions import *
 
 
@@ -679,4 +681,15 @@ class TEST_CAM_CMD_SceneAutoMode(ctypes.Structure):
 
 # For Callbacks
 class CameraState(ctypes.Structure):
-    _fields_ = [("capture_enabled", ctypes.c_bool)]
+    _fields_ = [("capture_enabled", ctypes.c_uint16)]
+
+    def __init__(self):
+        super(CameraState, self).__init__()
+        self.capture_enabled = 1
+
+
+class CallbackData(ctypes.Structure):
+    _fields_ = [
+        ("camera_state", CameraState),
+        ("image_captured_event", ctypes.py_object)  # ctypes.py_object can store a Python object
+    ]

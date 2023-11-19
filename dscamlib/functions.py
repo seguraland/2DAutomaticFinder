@@ -1,9 +1,10 @@
 import ctypes
+import time
 from ctypes import cast, POINTER, byref
 from pathlib import Path
 from .structures import (
     CAM_CMD_GetFrameSize, CAM_CMD_StartFrameTransfer, CameraState,
-    CAM_Device, Vector_CAM_FeatureValue, CAM_FeatureValue, CAM_FeatureDesc, CAM_Image, CAM_Event)
+    CAM_Device, Vector_CAM_FeatureValue, CAM_FeatureValue, CAM_FeatureDesc, CAM_Image, CAM_Event, CallbackData)
 from .definitions.error_codes import LX_OK
 from .definitions.other_definitions import *
 from .definitions.constants import (
@@ -355,11 +356,17 @@ def get_image_frame_size(camera_handle):
     return uiFrameSize
 
 
-def run_capture_sequence(camera_handle):
+def run_capture_sequence(camera_handle, camera_state, image_captured_event):
     print("Run image capture sequence...")
-    set_trigger_mode(camera_handle, ECamTriggerMode.ectmSoft)
+    set_trigger_mode(camera_handle, ECamTriggerMode.ectmHard)
     start_image_transfer(camera_handle)
-    capture_image(camera_handle)
+
+    # Wait for the image capture event to be set in the callback
+    if not image_captured_event.is_set():
+        print("Waiting for image capture...")
+        image_captured_event.wait()
+
+    # capture_image(camera_handle)
     # Only in Mode : ectmOff
     # one_push_soft_trigger(camera_handle)
     # The image reception will be handled in the event_callback
@@ -430,8 +437,17 @@ def capture_image(camera_handle):
     if error_msg:
         print(f"Failed to capture image: {error_msg}")
     else:
+        # Displaying the image metadata
+        print("Data Buffer Pointer:", stImage.pDataBuffer)
+        print("Data Buffer Size:", stImage.uiDataBufferSize)
+        print("Image Size:", stImage.uiImageSize)
+        print("Frame Count:", stImage.uiFrameCount)
+        print("End Time:", stImage.uiEndTime)
+        print("End Time 64:", stImage.uiEndTime64)
+        print("Reference Count:", stImage.uiRefCount)
+
         # Process or save the captured image
-        print("sdf image: {dfdf}")
+        print(stImage)
         # save_image(stImage, 'path/to/save/image')
 
     # Optionally, stop image transfer if it's a one-time capture
@@ -440,16 +456,24 @@ def capture_image(camera_handle):
 
 
 def event_callback(camera_handle, event_ptr, user_data):
+    # Extract the CallbackData structure
+    callback_data = ctypes.cast(user_data, ctypes.POINTER(CallbackData)).contents
+    camera_state = callback_data.camera_state
+    image_captured_event = callback_data.image_captured_event
+
     # Access the event structure
     event = event_ptr.contents
-    state = ctypes.cast(user_data, ctypes.POINTER(CameraState)).contents
+    camera_state.capture_enabled += 1
 
-    if state.capture_enabled:
+    print(event.eEventType)
+
+    if camera_state.capture_enabled < 10:
         # Check the event type and respond accordingly
         if event.eEventType == ECamEventType.ecetImageReceived.value:
             print("Image received event detected")
-            state.capture_enabled = False
-            capture_image(camera_handle)
+            #camera_state.capture_enabled = False
+            #capture_image(camera_handle)
+            #image_captured_event.set()
 
         elif event.eEventType == ECamEventType.ecetFeatureChanged.value:
             print("Feature changed event detected")
@@ -458,7 +482,10 @@ def event_callback(camera_handle, event_ptr, user_data):
             print("Exposure end event detected")
             # capture_image(camera_handle)
 
-        # Add additional elif blocks for other event types as needed
-
-        else:
-            print(f"Unknown event type: {event.eEventType}")
+        # # Add additional elif blocks for other event types as needed
+        #
+        # else:
+        #     print(f"Unknown event type: {event.eEventType}")
+    else:
+        camera_state.capture_enabled = 0
+        image_captured_event.set()
