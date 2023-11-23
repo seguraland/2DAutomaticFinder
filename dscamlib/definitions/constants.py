@@ -261,3 +261,23 @@ class ECamNoticeGroupCode(Enum):
 class ECamNoticeInfoCode(Enum):  # ECamNoticeInfoCode is not used
     ecnicTemperature = 1
     ecnicComment = 2
+
+
+def print_enum(enum_class, value, prefix="", print_result=True):
+    """
+    Returns or prints the name of the enum member for a given value in the specified enum class.
+
+    :param enum_class: The enum class to search in.
+    :param value: The value of the enum member.
+    :param prefix: Optional prefix to be added to the print statement.
+    :param print_result: If True, prints the result; otherwise returns the result.
+    :return: The name of the enum member or None if not found (when print_result is False).
+    """
+    for member in enum_class:
+        if member.value == value:
+            if print_result:
+                message = f"{prefix}{member.name}"
+                print(message)
+            return member.name
+    if not print_result:
+        return None

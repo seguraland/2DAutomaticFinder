@@ -1,15 +1,13 @@
 import ctypes
-import time
 from ctypes import cast, POINTER, byref
 from pathlib import Path
 from .structures import (
-    CAM_CMD_GetFrameSize, CAM_CMD_StartFrameTransfer, CameraState,
+    CAM_CMD_GetFrameSize, CAM_CMD_StartFrameTransfer,
     CAM_Device, Vector_CAM_FeatureValue, CAM_FeatureValue, CAM_FeatureDesc, CAM_Image, CAM_Event, CallbackData,
-    CAM_ImageInfo)
+    CAM_ImageInfo, CAM_Notice, print_structure)
 from .definitions.error_codes import LX_OK
 from .definitions.other_definitions import *
-from .definitions.constants import (
-    ECamFeatureId, ECamVariantRunType, ECamTriggerMode, ECamEventType)
+from .definitions.constants import *
 from .utils import get_error_message, process_feature_desc
 
 # Determine the absolute path to the 'DSCam.dll' file
@@ -71,11 +69,10 @@ FCAM_EventCallback = ctypes.CFUNCTYPE(None, lx_uint32, ctypes.POINTER(CAM_Event)
 dscam.CAM_SetEventCallback.argtypes = [lx_uint32, FCAM_EventCallback, ctypes.c_void_p]
 dscam.CAM_SetEventCallback.restype = lx_result
 
-
 # Sets a callback function for notifications
-# #FCAM_NoticeCallback = ctypes.CFUNCTYPE(None, lx_uint32, ctypes.POINTER(CAM_Notice), ctypes.c_void_p)
-# #dscam.CAM_SetNoticeCallback.argtypes = [lx_uint32, FCAM_NoticeCallback, ctypes.c_void_p]
-# #dscam.CAM_SetNoticeCallback.restype = lx_result
+FCAM_NoticeCallback = ctypes.CFUNCTYPE(None, lx_uint32, ctypes.POINTER(CAM_Notice), ctypes.c_void_p)
+dscam.CAM_SetNoticeCallback.argtypes = [lx_uint32, FCAM_NoticeCallback, ctypes.c_void_p]
+dscam.CAM_SetNoticeCallback.restype = lx_result
 
 
 # # Define CAM_OpenDevices Function
@@ -223,12 +220,13 @@ def CAM_SetFeatures(camera_handle, vect_feature_value):
     print("     >CAM_SetFeatures : DONE")
 
 
-def GetAllFeaturesDesc(camera_handle, features):
+def GetAllFeaturesDesc(camera_handle, features, debug):
     """
     Retrieves descriptions for all features.
 
     :param camera_handle: The handle to the camera device.
     :param features: A list of features obtained from GetAllFeatures.
+    :param debug: Print the list of features.
     :return: A list of feature descriptions or an error message.
     """
     feature_descs = []
@@ -246,6 +244,18 @@ def GetAllFeaturesDesc(camera_handle, features):
         readable_desc = process_feature_desc(feature_desc)
 
         feature_descs.append(readable_desc)
+
+    if isinstance(feature_descs, list):
+        if debug > 2:
+            print("Feature Descriptions:")
+        for idx, desc in enumerate(feature_descs):
+            print(f"FDES {idx + 1}:")
+            for key, value in desc.items():
+                print(f"  {key}: {value}")
+            print()  # Add an empty line for better readability
+    else:
+        if debug > 0:
+            print(feature_descs)
 
     return feature_descs
 
@@ -313,6 +323,15 @@ def CAM_SetEventCallback(camera_handle, callback_func, user_data):
     return wrapped_callback  # Keep a reference to prevent garbage collection
 
 
+# Wrapper for CAM_SetNoticeCallback
+def CAM_SetNoticeCallback(camera_handle, callback_func, user_data):
+    wrapped_callback = FCAM_NoticeCallback(callback_func)
+    result = dscam.CAM_SetNoticeCallback(camera_handle, wrapped_callback, user_data)
+    if result != LX_OK:
+        raise RuntimeError(f"Failed to set notice callback, error code: {result}")
+    return wrapped_callback  # Keep a reference to prevent garbage collection
+
+
 def set_trigger_mode(camera_handle, mode):
     print(" Trigger mode set...")
     # Prepare the feature value for setting the trigger mode
@@ -359,7 +378,7 @@ def get_image_frame_size(camera_handle):
 
 
 def run_capture_sequence(camera_handle, camera_state, image_captured_event):
-    print("Run image capture sequence...")
+    print(f"Run image capture sequence...{camera_state}")
     set_trigger_mode(camera_handle, ECamTriggerMode.ectmSoft)
     start_image_transfer(camera_handle)
 
@@ -373,7 +392,7 @@ def run_capture_sequence(camera_handle, camera_state, image_captured_event):
 
     # The image reception will be handled in the event_callback
 
-    #end_image_transfer(camera_handle)
+    # end_image_transfer(camera_handle)
     print("Run image capture sequence DONE")
 
 
@@ -509,6 +528,9 @@ def event_callback(camera_handle, event_ptr, user_data):
     event = event_ptr.contents
 
     if camera_state.capture_enabled < 2:
+        # Print the name of the event type
+        print_enum(ECamEventType, event.eEventType, "event Received:")
+
         # Check the event type and respond accordingly
         if event.eEventType == ECamEventType.ecetImageReceived.value:
             print("Image received event detected")
@@ -530,3 +552,44 @@ def event_callback(camera_handle, event_ptr, user_data):
     else:
         camera_state.capture_enabled = 0
         image_captured_event.set()
+
+
+def notice_callback(camera_handle, event_ptr, user_data):
+    # Extract the Notice CallbackData structure
+    callback_data = ctypes.cast(user_data, ctypes.POINTER(CallbackData)).contents
+    camera_state = callback_data.camera_state
+    notice_captured_event = callback_data.notice_captured_event
+
+    # Access the notice structure
+    notice = event_ptr.contents
+
+    if camera_state.n_capture_enabled < 2:
+        # Print the name of the notice type
+        print_enum(ECamNoticeType, notice.eNoticeType, f"Notice Received {camera_handle}:")
+
+        # Process the notice based on its type
+        if notice.eNoticeType == ECamNoticeType.ecntTransError.value:
+            # Handle TransError
+            trans_error = notice.Data.stTransError
+            print_structure(trans_error)
+
+        elif notice.eNoticeType == ECamNoticeType.ecntGroup.value:
+            # Handle Group
+            group_notice = notice.Data.stGroup
+            print_enum(ECamNoticeGroupCode, group_notice.eCode, " ecntGroup:")
+            print_structure(group_notice)
+
+        elif notice.eNoticeType == ECamNoticeType.ecntInfo.value:
+            # Handle Info
+            info_notice = notice.Data.stInfo
+            print_enum(ECamNoticeInfoCode, info_notice.eCode, " ecntInfo:")
+            print_structure(info_notice)
+
+        elif notice.eNoticeType == ECamNoticeType.ecntUnknown.value:
+            print("Notice Received: Unknown")
+            camera_state.n_capture_enabled = 0
+            notice_captured_event.set()
+
+    else:
+        camera_state.n_capture_enabled = 0
+        notice_captured_event.set()

@@ -1,5 +1,4 @@
 import ctypes
-import threading
 
 from .definitions.other_definitions import *
 
@@ -630,18 +629,20 @@ class CAM_NoticeInfo(ctypes.Structure):
     ]
 
 
+# CAM_Notice Union Structure
+class CAM_Notice_Union(ctypes.Union):
+    _fields_ = [
+        ("stTransError", CAM_NoticeTransError),
+        ("stGroup", CAM_NoticeGroup),
+        ("stInfo", CAM_NoticeInfo),
+    ]
+
+
 # CAM_Notice Structure
 class CAM_Notice(ctypes.Structure):
-    class _CAM_Notice__union(ctypes.Union):
-        _fields_ = [
-            ("stTransError", CAM_NoticeTransError),
-            ("stGroup", CAM_NoticeGroup),
-            ("stInfo", CAM_NoticeInfo)
-        ]
-
     _fields_ = [
         ("eNoticeType", ctypes.c_int),
-        ("_union", _CAM_Notice__union)
+        ("Data", CAM_Notice_Union),
     ]
 
 
@@ -681,15 +682,29 @@ class TEST_CAM_CMD_SceneAutoMode(ctypes.Structure):
 
 # For Callbacks
 class CameraState(ctypes.Structure):
-    _fields_ = [("capture_enabled", ctypes.c_uint16)]
+    _fields_ = [("capture_enabled", ctypes.c_uint16),
+                ("n_capture_enabled", ctypes.c_uint16)
+                ]
 
     def __init__(self):
         super(CameraState, self).__init__()
         self.capture_enabled = 1
+        self.n_capture_enabled = 1
 
 
 class CallbackData(ctypes.Structure):
     _fields_ = [
         ("camera_state", CameraState),
-        ("image_captured_event", ctypes.py_object)  # ctypes.py_object can store a Python object
+        ("image_captured_event", ctypes.py_object),  # ctypes.py_object can store a Python object
+        ("notice_captured_event", ctypes.py_object)  # ctypes.py_object can store a Python object
     ]
+
+
+def print_structure(struct):
+    """
+    Prints all fields and their values for a given ctypes.Structure.
+
+    :param struct: The ctypes.Structure instance.
+    """
+    for field_name, field_value in struct.__dict__.items():
+        print(f" {field_name}: {field_value}")

@@ -1,5 +1,5 @@
 from .definitions.error_codes import *
-from .definitions.constants import ECamEventType, ECamFeatureDescType
+from .definitions.constants import ECamFeatureDescType, ECamVariantRunType
 
 
 def get_error_message(error_code):
@@ -48,8 +48,41 @@ def process_feature_desc(feature_desc):
     return readable_desc
 
 
+def get_feature_display_string(feature_value, feature_desc):
+    """
+    Converts a feature value into a human-readable string based on its description.
+
+    :param feature_value: A CAM_FeatureValue object.
+    :param feature_desc: A CAM_FeatureDesc object corresponding to the feature value.
+    :return: A human-readable string representing the feature value.
+    """
+    str_value = "(unknown)"
+
+    # Depending on the description type, format the feature value
+    if feature_desc.eFeatureDescType == ECamFeatureDescType.edesc_ElementList.value:
+        for i in range(feature_desc.uiListCount):
+            if feature_desc.stElementList[i].varValue == feature_value.stVariant:
+                str_value = feature_desc.stElementList[i].wszComment
+                break
+
+    elif feature_desc.eFeatureDescType == ECamFeatureDescType.edesc_Range.value:
+        if feature_value.stVariant.eVarType == ECamVariantRunType.evrt_int32.value:
+            str_value = str(feature_value.stVariant.i32Value)
+        elif feature_value.stVariant.eVarType == ECamVariantRunType.evrt_uint32.value:
+            str_value = str(feature_value.stVariant.ui32Value)
+
+    elif feature_desc.eFeatureDescType == ECamFeatureDescType.edesc_Area.value:
+        str_value = "{},{},{},{}".format(
+            feature_value.stVariant.stArea.uiLeft,
+            feature_value.stVariant.stArea.uiTop,
+            feature_value.stVariant.stArea.uiWidth,
+            feature_value.stVariant.stArea.uiHeight)
+
+    # Add other cases as needed...
+
+    return str_value
+
+
 def save_image(stImage, path):
     print(stImage)
-
-
-
+    print(path)

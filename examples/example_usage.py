@@ -43,11 +43,13 @@ def run_example():
             # Set event callback for image reception
             camera_state = CameraState()
             image_captured_event = threading.Event()
+            notice_captured_event = threading.Event()
 
             # Pack the camera state and the event into CallbackData
             callback_data = CallbackData()
             callback_data.camera_state = camera_state
             callback_data.image_captured_event = image_captured_event
+            callback_data.notice_captured_event = notice_captured_event
 
             # Pass the CallbackData object to the callback
             user_data = ctypes.pointer(callback_data)
@@ -55,9 +57,10 @@ def run_example():
             # Set up the callback
             wrapped_callback = CAM_SetEventCallback(camera_handle, event_callback, user_data)
 
-            features = print_features(camera_handle, DEBUG_PRINT)
-            if features:
-                print_feature_descriptions(camera_handle, features, DEBUG_PRINT)
+            # Set up the notice callback
+            wrapped_callback_app = CAM_SetNoticeCallback(camera_handle, notice_callback, user_data)
+
+            print_features(camera_handle, DEBUG_PRINT)
 
             run_capture_sequence(camera_handle, camera_state, image_captured_event)
 
@@ -91,26 +94,12 @@ def print_features(camera_handle, debug=0):
     if isinstance(features, list):
         if debug > 2:
             print("Features: ", features)
+            GetAllFeaturesDesc(camera_handle, features, debug)
         return features
     else:
         if debug > 1:
             print(features)  # Error message
         return None
-
-
-def print_feature_descriptions(camera_handle, features, debug=0):
-    feature_descs = GetAllFeaturesDesc(camera_handle, features)
-    if isinstance(feature_descs, list):
-        if debug > 2:
-            print("Feature Descriptions:")
-        for idx, desc in enumerate(feature_descs):
-            print(f"FDES {idx + 1}:")
-            for key, value in desc.items():
-                print(f"  {key}: {value}")
-            print()  # Add an empty line for better readability
-    else:
-        if debug > 0:
-            print(feature_descs)
 
 
 def close_camera(camera_handle):
